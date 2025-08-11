@@ -45,6 +45,104 @@ export const questions: Question[] = [
     ...generateIRTParams(2)
   },
   {
+    id: 'mx_003',
+    category: QuestionCategory.MATRIX_REASONING,
+    difficulty: 5,
+    question: 'Complete the matrix based on addition across rows',
+    options: [],
+    correctAnswer: 2,
+    timeLimit: 120,
+    explanation: 'Each cell equals the sum of the two previous cells in the row',
+    taskType: TaskType.MATRIX_COMPLETION,
+    taskData: {
+      matrixPattern: {
+        grid: [
+          ['1', '2', '3'],
+          ['2', '3', '5'],
+          ['3', '5', null]
+        ],
+        missingIndex: [2, 2],
+        options: ['5', '6', '8', '9'],
+        correctOption: 2,
+        pattern: 'addition'
+      }
+    },
+    ...generateIRTParams(5)
+  },
+  {
+    id: 'vp_002',
+    category: QuestionCategory.VISUAL_PUZZLES,
+    difficulty: 5,
+    question: 'Select pieces to form a symmetric target',
+    options: [],
+    correctAnswer: 1,
+    timeLimit: 120,
+    explanation: 'Identify symmetrical components',
+    taskType: TaskType.VISUAL_PUZZLE,
+    taskData: {
+      visualPuzzle: {
+        completedImage: 'data:image/svg+xml;base64,PHN2Zy8+',
+        pieces: [
+          { id: 'A', shape: 'triangle', rotation: 0 },
+          { id: 'B', shape: 'square', rotation: 0 },
+          { id: 'C', shape: 'triangle', rotation: 0 },
+          { id: 'D', shape: 'circle', rotation: 0 },
+          { id: 'E', shape: 'square', rotation: 0 },
+          { id: 'F', shape: 'pentagon', rotation: 0 }
+        ],
+        correctCombination: ['A', 'C', 'E'],
+        gridSize: [3, 3]
+      }
+    },
+    ...generateIRTParams(5)
+  },
+  {
+    id: 'fw_002',
+    category: QuestionCategory.FIGURE_WEIGHTS,
+    difficulty: 5,
+    question: 'Balance with composite weights',
+    options: [],
+    correctAnswer: 1,
+    timeLimit: 150,
+    explanation: 'Consider both sides and choose correct mass',
+    taskType: TaskType.FIGURE_BALANCE,
+    taskData: {
+      scaleData: {
+        leftSide: [
+          { id: '1', value: 4, shape: 'square', color: '#3B82F6' },
+          { id: '2', value: 7, shape: 'triangle', color: '#10B981' }
+        ],
+        rightSide: [
+          { id: '3', value: 6, shape: 'circle', color: '#EF4444' }
+        ],
+        missingWeight: 'right',
+        availableWeights: [
+          { id: 'opt1', value: 3, shape: 'circle', color: '#F59E0B' },
+          { id: 'opt2', value: 5, shape: 'square', color: '#8B5CF6' },
+          { id: 'opt3', value: 7, shape: 'triangle', color: '#EC4899' }
+        ],
+        correctWeight: '5'
+      }
+    },
+    ...generateIRTParams(5)
+  },
+  {
+    id: 'nb_002',
+    category: QuestionCategory.WORKING_MEMORY,
+    difficulty: 6,
+    question: '3-back spatial positions',
+    options: [],
+    correctAnswer: 1,
+    timeLimit: 180,
+    explanation: 'Compare with 3 trials back',
+    taskType: TaskType.WORKING_MEMORY_NBACK,
+    taskData: {
+      nBackLevel: 3,
+      memoryItems: []
+    },
+    ...generateIRTParams(6)
+  },
+  {
     id: 'mx_002',
     category: QuestionCategory.MATRIX_REASONING,
     difficulty: 4,

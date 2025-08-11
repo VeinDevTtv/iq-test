@@ -179,7 +179,48 @@ export const useTestStore = create<TestStore>()(
         // Derive response time from centralized per-question timer
         const responseTime = Math.max(0, (currentQuestion.timeLimit - (currentSession.questionTimeRemaining ?? 0)) * 1000);
         
-        const isCorrect = answer === currentQuestion.correctAnswer;
+        // Determine correctness for both MCQ and interactive tasks
+        let isCorrect: boolean;
+        if (currentQuestion.taskType && currentQuestion.taskData) {
+          switch (currentQuestion.taskType) {
+            case 'matrix_completion': {
+              const correctIdx = (currentQuestion.taskData.matrixPattern as any)?.correctOption;
+              isCorrect = typeof correctIdx === 'number' ? answer === correctIdx : false;
+              break;
+            }
+            case 'symbol_coding': {
+              // answer = number correct; consider >= 5 correct as pass (out of 8)
+              isCorrect = typeof answer === 'number' ? answer >= 5 : false;
+              break;
+            }
+            case 'processing_speed_scan': {
+              // answer = accuracy %; consider >= 70% as pass
+              isCorrect = typeof answer === 'number' ? answer >= 70 : false;
+              break;
+            }
+            case 'working_memory_nback': {
+              // answer = accuracy %; consider >= 60% as pass
+              isCorrect = typeof answer === 'number' ? answer >= 60 : false;
+              break;
+            }
+            case 'digit_span':
+            case 'block_assembly':
+            case 'visual_puzzle':
+            case 'spatial_rotation':
+            case 'figure_balance': {
+              // answer = 1 correct, 0 incorrect
+              isCorrect = answer === 1;
+              break;
+            }
+            default: {
+              // Fallback to simple compare with correctAnswer if defined
+              isCorrect = answer === currentQuestion.correctAnswer;
+            }
+          }
+        } else {
+          // Multiple choice
+          isCorrect = answer === currentQuestion.correctAnswer;
+        }
         
         // Calculate IRT parameters for current question
         const irtParams: IRTParameters = {
@@ -235,8 +276,17 @@ export const useTestStore = create<TestStore>()(
         const updatedDomainCoverage = { ...currentSession.domainCoverage };
         updatedDomainCoverage[currentQuestion.category]++;
 
-        const nextQuestionIndex = currentSession.currentQuestionIndex + 1;
-        const nextQuestion = currentSession.questions[nextQuestionIndex];
+        // Adaptive next question selection to reduce repetition
+        let nextQuestionIndex = currentSession.currentQuestionIndex + 1;
+        let nextQuestion = currentSession.questions[nextQuestionIndex];
+        const adaptiveNext = get().selectNextQuestion();
+        if (adaptiveNext) {
+          const idx = currentSession.questions.findIndex(q => q.id === adaptiveNext.id);
+          if (idx !== -1) {
+            nextQuestionIndex = idx;
+            nextQuestion = adaptiveNext;
+          }
+        }
 
         const updatedSession: TestSession = {
           ...currentSession,
