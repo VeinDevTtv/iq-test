@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { RotateCw, RotateCcw, RotateX, RotateY, RotateZ } from 'lucide-react';
+import { Plus, Minus } from 'lucide-react';
 import { TaskData, SpatialObject } from '@/types';
 
 interface SpatialRotationTaskProps {
@@ -260,7 +260,7 @@ export function SpatialRotationTask({ taskData, onAnswer, isActive, timeRemainin
                   className="bg-red-500/20 border-red-500/30 hover:bg-red-500/30 text-red-300"
                   disabled={!isActive || isComplete}
                 >
-                  <RotateX className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -269,7 +269,7 @@ export function SpatialRotationTask({ taskData, onAnswer, isActive, timeRemainin
                   className="bg-red-500/20 border-red-500/30 hover:bg-red-500/30 text-red-300"
                   disabled={!isActive || isComplete}
                 >
-                  <RotateX className="w-4 h-4 scale-y-[-1]" />
+                  <Minus className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -285,7 +285,7 @@ export function SpatialRotationTask({ taskData, onAnswer, isActive, timeRemainin
                   className="bg-green-500/20 border-green-500/30 hover:bg-green-500/30 text-green-300"
                   disabled={!isActive || isComplete}
                 >
-                  <RotateY className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -294,7 +294,7 @@ export function SpatialRotationTask({ taskData, onAnswer, isActive, timeRemainin
                   className="bg-green-500/20 border-green-500/30 hover:bg-green-500/30 text-green-300"
                   disabled={!isActive || isComplete}
                 >
-                  <RotateY className="w-4 h-4 scale-y-[-1]" />
+                  <Minus className="w-4 h-4" />
                 </Button>
               </div>
             </div>
@@ -310,7 +310,7 @@ export function SpatialRotationTask({ taskData, onAnswer, isActive, timeRemainin
                   className="bg-blue-500/20 border-blue-500/30 hover:bg-blue-500/30 text-blue-300"
                   disabled={!isActive || isComplete}
                 >
-                  <RotateZ className="w-4 h-4" />
+                  <Plus className="w-4 h-4" />
                 </Button>
                 <Button
                   variant="outline"
@@ -319,7 +319,7 @@ export function SpatialRotationTask({ taskData, onAnswer, isActive, timeRemainin
                   className="bg-blue-500/20 border-blue-500/30 hover:bg-blue-500/30 text-blue-300"
                   disabled={!isActive || isComplete}
                 >
-                  <RotateZ className="w-4 h-4 scale-y-[-1]" />
+                  <Minus className="w-4 h-4" />
                 </Button>
               </div>
             </div>
