@@ -22,6 +22,7 @@
 ## 📋 Table of Contents
 
 - [🌟 Key Features](#-key-features)
+- [⚙️ Recent Updates](#️-recent-updates)
 - [🧠 Cognitive Domains](#-cognitive-domains)
 - [🏗️ Technical Architecture](#️-technical-architecture)
 - [📈 Scoring System](#-scoring-system)
@@ -46,6 +47,12 @@
 - **Computerized Adaptive Testing (CAT)**: Dynamic difficulty adjustment using Maximum Information criterion
 - **Psychometric Validation**: Cronbach's Alpha, measurement precision, and reliability metrics
 
+### ⚙️ Recent Updates
+- **Centralized Timing & Masking**: Unified global and per-question timers with optional content masking and start-gating to ensure standardized presentation and response windows.
+- **Interactive Task Reliability**: Audited and fixed all interactive tasks (Matrix Reasoning, Block Design, Visual Puzzle, Digit Span, N-Back Working Memory, Symbol Coding, Processing Speed, Spatial Rotation, Figure Weights) for correct scoring and robust UX.
+- **Adaptive Item Selection**: Post-answer selection now leverages the adaptive engine to reduce repetition and maintain domain balance.
+- **Expanded Item Bank**: Added multiple new items across domains (e.g., `mx_003`, `vp_002`, `fw_002`, `nb_002`) to improve variety and measurement precision.
+
 ### 🧪 **Advanced Analytics**
 - **Domain Mastery Analysis**: Detailed cognitive domain breakdown with expert-level insights
 - **Confidence Intervals**: 95% CI for IQ scores with measurement precision indicators
@@ -68,17 +75,17 @@
 
 ## 🧠 Cognitive Domains
 
-Our comprehensive assessment covers five core cognitive domains with scientifically calibrated questions:
+Our comprehensive assessment covers core cognitive domains with scientifically calibrated questions:
 
 <div align="center">
 
 | Domain | Questions | Difficulty Range | Key Skills |
 |--------|-----------|------------------|------------|
-| 🔍 **Pattern Recognition** | 20+ | 1-10 | Sequence completion, Mathematical series, Fibonacci patterns |
-| 🎯 **Spatial Reasoning** | 20+ | 1-10 | 3D visualization, Mental rotation, Geometric relationships |
-| 🧩 **Logical Deduction** | 20+ | 1-10 | Syllogistic reasoning, Conditional logic, Set theory |
-| 🔢 **Numerical Reasoning** | 20+ | 1-10 | Algebraic problems, Percentages, Mathematical word problems |
-| 🧠 **Short-Term Memory** | 20+ | 1-10 | Sequence recall, Pattern memorization, Working memory |
+| 🔍 **Pattern Recognition** | many | 1-10 | Sequence completion, Mathematical series, Fibonacci patterns |
+| 🎯 **Spatial Reasoning** | many | 1-10 | 3D visualization, Mental rotation, Geometric relationships |
+| 🧩 **Logical Deduction** | many | 1-10 | Syllogistic reasoning, Conditional logic, Set theory |
+| 🔢 **Numerical Reasoning** | many | 1-10 | Algebraic problems, Percentages, Mathematical word problems |
+| 🧠 **Short-Term Memory** | many | 1-10 | Sequence recall, Pattern memorization, Working memory |
 
 </div>
 
@@ -240,6 +247,8 @@ IQ = 100 + 15 × θ
 4. **Open in browser**
    Navigate to [http://localhost:3000](http://localhost:3000)
 
+> Note: During a test session, navigation shortcuts and text selection are disabled to preserve standard conditions.
+
 ### **Production Deployment**
 
 ```bash
@@ -285,7 +294,10 @@ const defaultConfig: AdaptiveTestConfig = {
   priorVariance: 1.0,          // Bayesian prior variance
   penalizeSlowAnswers: true,    // Time-based scoring adjustment
   penalizeFastAnswers: true,    // Detect rushed responses
-  timeWeightFactor: 0.1        // Weight of time in scoring (0.0-1.0)
+  timeWeightFactor: 0.1,        // Weight of time in scoring (0.0-1.0)
+  presentationMaskMs: 1000,     // Blur/hide content for this many ms at start
+  requireStartForMCQ: true,     // Require explicit Start before MCQs
+  autoSubmitOnTimeUp: true      // Auto-submit when per-question timer hits 0
 };
 ```
 
@@ -332,6 +344,19 @@ Modify the theme in `src/app/globals.css`:
 ---
 
 ## 📊 Analytics Dashboard
+
+---
+
+## 🧩 Fill These Sections For Your Project
+
+- Project Name: Replace badges/links pointing to `your-username/iq-test-system` with your actual repo name and owner.
+- Overview: Add a short paragraph at the very top describing your unique goals, audience, and what differentiates your IQ test.
+- Live Demo URL: Update the demo links if you deploy under a different domain.
+- Installation details: If you use pnpm/yarn only, simplify the install section accordingly.
+- Usage/Workflow: Add screenshots or a short GIF of the testing flow (Welcome → Questions/Tasks → Results).
+- Contributing: Define the exact branching strategy, code owners, and PR review rules you want contributors to follow.
+- License: Confirm the license and copyright holder (update year and name).
+- Acknowledgments: Credit collaborators, datasets, research, and libraries that were influential.
 
 ### **Performance Metrics Overview**
 
