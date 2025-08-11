@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RotateCw, RefreshCw, Eye } from 'lucide-react';
-import { VisualPuzzleTask as VisualPuzzleTaskType, TaskData, PuzzlePiece } from '@/types';
+import { TaskData, PuzzlePiece } from '@/types';
 
 interface VisualPuzzleTaskProps {
   taskData: TaskData;
@@ -26,10 +26,9 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
   const [isComplete, setIsComplete] = useState(false);
   
   const visualPuzzle = taskData.visualPuzzle;
-  
-  if (!visualPuzzle) return null;
 
   useEffect(() => {
+    if (!visualPuzzle) return;
     // Initialize available pieces
     const pieces: PlacedPiece[] = visualPuzzle.pieces.map(piece => ({
       ...piece,
@@ -40,24 +39,27 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
   }, [visualPuzzle]);
 
   useEffect(() => {
-    if (isActive && showTarget) {
-      // Show target for 5 seconds
-      const timer = setTimeout(() => setShowTarget(false), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [isActive, showTarget]);
+    if (!visualPuzzle) return;
+    if (!(isActive && showTarget)) return;
+    // Show target for 5 seconds
+    const timer = setTimeout(() => setShowTarget(false), 5000);
+    return () => clearTimeout(timer);
+  }, [isActive, showTarget, visualPuzzle]);
 
   useEffect(() => {
+    if (!visualPuzzle) return;
     // Check if puzzle is complete (3 pieces selected for this example)
     if (selectedPieces.length === 3) {
       const isCorrect = checkSolution();
       setIsComplete(true);
       onAnswer(isCorrect ? 1 : 0);
     }
-  }, [selectedPieces, onAnswer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPieces, onAnswer, visualPuzzle]);
 
   const checkSolution = (): boolean => {
     // Check if selected pieces match the correct combination
+    if (!visualPuzzle) return false;
     const sortedSelected = [...selectedPieces].sort();
     const sortedCorrect = [...visualPuzzle.correctCombination].sort();
     return JSON.stringify(sortedSelected) === JSON.stringify(sortedCorrect);
@@ -109,7 +111,7 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
         </CardContent>
       </Card>
       <p className="text-white/60 text-sm">
-        Memorize this shape. You'll need to recreate it using the puzzle pieces.
+        Memorize this shape. You’ll need to recreate it using the puzzle pieces.
       </p>
     </motion.div>
   );
@@ -125,9 +127,8 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
       </h4>
       
       <div className="grid grid-cols-3 gap-4 max-w-lg mx-auto">
-        {availablePieces.map((piece, index) => {
+            {availablePieces.map((piece) => {
           const isSelected = selectedPieces.includes(piece.id);
-          const isCorrectPiece = visualPuzzle.correctCombination.includes(piece.id);
           
           return (
             <motion.div
@@ -152,9 +153,9 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
                     style={{ transform: `rotate(${piece.currentRotation}deg)` }}
                   >
                     {/* Simplified piece visualization */}
-                    <div className={`w-full h-full rounded-lg ${getPieceStyle(piece, index)}`}>
+                    <div className={`w-full h-full rounded-lg ${getPieceStyle(piece)}`}>
                       <div className="w-full h-full flex items-center justify-center text-white font-bold">
-                        {String.fromCharCode(65 + index)}
+                        {piece.id}
                       </div>
                     </div>
                   </div>
@@ -200,7 +201,7 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
     </motion.div>
   );
 
-  const getPieceStyle = (piece: PuzzlePiece, index: number): string => {
+  const getPieceStyle = (piece: PuzzlePiece): string => {
     const colors = [
       'bg-gradient-to-br from-red-500 to-red-600',
       'bg-gradient-to-br from-blue-500 to-blue-600',
@@ -209,7 +210,8 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
       'bg-gradient-to-br from-purple-500 to-purple-600',
       'bg-gradient-to-br from-pink-500 to-pink-600',
     ];
-    return colors[index % colors.length];
+    const hash = piece.id.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    return colors[hash % colors.length];
   };
 
   const renderCompletion = () => {
@@ -228,7 +230,7 @@ export function VisualPuzzleTask({ taskData, onAnswer, isActive, timeRemaining }
           <p className="text-white/70">
             {isCorrect 
               ? 'You correctly identified the pieces that form the target shape!'
-              : 'The selected pieces don\'t match the target shape. Try again!'
+              : 'The selected pieces don’t match the target shape. Try again!'
             }
           </p>
         </div>

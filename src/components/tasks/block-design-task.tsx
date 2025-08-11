@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RotateCw, RotateCcw, RefreshCw } from 'lucide-react';
-import { BlockDesignTask as BlockDesignTaskType, TaskData, BlockType } from '@/types';
+import { TaskData, BlockType } from '@/types';
 
 interface BlockDesignTaskProps {
   taskData: TaskData;
@@ -28,29 +28,30 @@ export function BlockDesignTask({ taskData, onAnswer, isActive, timeRemaining }:
   const [showTarget, setShowTarget] = useState(true);
   
   const blockDesign = taskData.blockDesign;
-  
-  if (!blockDesign) return null;
 
   useEffect(() => {
-    if (isActive && showTarget) {
-      // Show target for 3 seconds then hide
-      const timer = setTimeout(() => setShowTarget(false), 3000);
-      return () => clearTimeout(timer);
-    }
-  }, [isActive, showTarget]);
+    if (!blockDesign) return;
+    if (!(isActive && showTarget)) return;
+    // Show target for 3 seconds then hide
+    const timer = setTimeout(() => setShowTarget(false), 3000);
+    return () => clearTimeout(timer);
+  }, [isActive, showTarget, blockDesign]);
 
   useEffect(() => {
+    if (!blockDesign) return;
     // Check if design is complete
     if (placedBlocks.length === blockDesign.blockCount) {
       const isCorrect = checkDesignCorrectness();
       setIsComplete(isCorrect);
       onAnswer(isCorrect ? 1 : 0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placedBlocks, blockDesign, onAnswer]);
 
   const checkDesignCorrectness = (): boolean => {
     // Simplified correctness check - in a real implementation, 
     // this would compare the actual pattern matching
+    if (!blockDesign) return false;
     return placedBlocks.length === blockDesign.blockCount;
   };
 
@@ -101,7 +102,7 @@ export function BlockDesignTask({ taskData, onAnswer, isActive, timeRemaining }:
       <h4 className="text-center text-white/90 font-medium">Target Design</h4>
       <Card className="bg-white/10 border-white/20 p-4">
         <div className="grid grid-cols-2 gap-1 max-w-24 mx-auto">
-          {blockDesign.targetPattern.map((row, rowIndex) =>
+          {blockDesign?.targetPattern.map((row, rowIndex) =>
             row.map((cell, colIndex) => (
               <div
                 key={`target-${rowIndex}-${colIndex}`}
@@ -164,7 +165,7 @@ export function BlockDesignTask({ taskData, onAnswer, isActive, timeRemaining }:
                     `}
                     style={{ transform: `rotate(${placedBlock.rotation}deg)` }}
                   >
-                    {blockDesign.rotationAllowed && (
+                    {blockDesign?.rotationAllowed && (
                       <div className="absolute -top-2 -right-2 flex gap-1">
                         <Button
                           size="sm"
@@ -204,7 +205,7 @@ export function BlockDesignTask({ taskData, onAnswer, isActive, timeRemaining }:
     <div className="space-y-3">
       <h4 className="text-center text-white/90 font-medium">Available Blocks</h4>
       <div className="flex justify-center gap-3">
-        {blockDesign.blockTypes.map((blockType) => (
+        {blockDesign?.blockTypes.map((blockType) => (
           <motion.div
             key={blockType.id}
             whileHover={{ scale: 1.1 }}
@@ -238,6 +239,8 @@ export function BlockDesignTask({ taskData, onAnswer, isActive, timeRemaining }:
 
   return (
     <div className="space-y-6">
+      {!blockDesign ? null : (
+        <>
       {/* Instructions */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -317,6 +320,8 @@ export function BlockDesignTask({ taskData, onAnswer, isActive, timeRemaining }:
             <span className="text-sm font-medium">Design completed!</span>
           </div>
         </motion.div>
+      )}
+      </>
       )}
     </div>
   );

@@ -12,12 +12,9 @@ import {
   SecurityMetrics,
   IRTParameters
 } from '@/types';
-import { questions } from '@/data/questions';
 import { irtEngine } from '@/lib/irt-engine';
 import { getLocalizedQuestions } from '@/lib/localized-questions';
 import i18n from '@/lib/i18n';
-import { questionService } from '@/services/question-service';
-import { getCurrentLocale } from '@/lib/i18n';
 
 interface TestStore {
   // Current test session
@@ -38,6 +35,7 @@ interface TestStore {
   endTest: () => void;
   resetTest: () => void;
   updateTimer: () => void;
+  activateCurrentQuestion: () => void; // starts per-question timer
   
   // Advanced analytics
   calculateAdvancedResults: () => TestResult;
@@ -69,7 +67,10 @@ const defaultConfig: AdaptiveTestConfig = {
   priorVariance: 1.0,
   penalizeSlowAnswers: true,
   penalizeFastAnswers: true,
-  timeWeightFactor: 0.1
+  timeWeightFactor: 0.1,
+  presentationMaskMs: 1000,
+  requireStartForMCQ: true,
+  autoSubmitOnTimeUp: true
 };
 
 const generateSessionId = (): string => {
@@ -121,22 +122,18 @@ export const useTestStore = create<TestStore>()(
         const localizedQuestions = getLocalizedQuestions(currentLocale);
         const shuffledQuestions = shuffleArray(localizedQuestions);
         
-        // Initialize domain coverage tracking
-        const domainCoverage: Record<QuestionCategory, number> = {
-          [QuestionCategory.PATTERN_RECOGNITION]: 0,
-          [QuestionCategory.SPATIAL_REASONING]: 0,
-          [QuestionCategory.LOGICAL_DEDUCTION]: 0,
-          [QuestionCategory.SHORT_TERM_MEMORY]: 0,
-          [QuestionCategory.NUMERICAL_REASONING]: 0
-        };
-        
-        const targetDomainBalance: Record<QuestionCategory, number> = {
-          [QuestionCategory.PATTERN_RECOGNITION]: 6,
-          [QuestionCategory.SPATIAL_REASONING]: 6,
-          [QuestionCategory.LOGICAL_DEDUCTION]: 6,
-          [QuestionCategory.SHORT_TERM_MEMORY]: 6,
-          [QuestionCategory.NUMERICAL_REASONING]: 6
-        };
+        // Initialize domain coverage tracking for all categories
+        const categories = Object.values(QuestionCategory) as QuestionCategory[];
+        const baseTarget = Math.max(1, Math.floor(get().config.totalQuestions / categories.length));
+        const domainCoverage: Record<QuestionCategory, number> = categories.reduce((acc, cat) => {
+          acc[cat] = 0;
+          return acc;
+        }, {} as Record<QuestionCategory, number>);
+
+        const targetDomainBalance: Record<QuestionCategory, number> = categories.reduce((acc, cat) => {
+          acc[cat] = baseTarget;
+          return acc;
+        }, {} as Record<QuestionCategory, number>);
 
         const newSession: TestSession = {
           id: sessionId,
@@ -145,6 +142,8 @@ export const useTestStore = create<TestStore>()(
           questions: shuffledQuestions,
           answers: [],
           globalTimeRemaining: get().config.globalTimeLimit,
+          questionTimeRemaining: (shuffledQuestions[0]?.timeLimit ?? get().config.questionTimeLimit),
+          isCurrentQuestionActive: false,
           abilityEstimate: get().config.startingAbility,
           abilityHistory: [get().config.startingAbility],
           standardError: 1.0, // Initial high uncertainty
@@ -177,8 +176,8 @@ export const useTestStore = create<TestStore>()(
         const currentQuestion = currentSession.questions[currentSession.currentQuestionIndex];
         if (!currentQuestion) return;
 
-        const responseTime = Date.now() - (currentSession.startTime.getTime() + 
-          (currentSession.currentQuestionIndex * config.questionTimeLimit * 1000));
+        // Derive response time from centralized per-question timer
+        const responseTime = Math.max(0, (currentQuestion.timeLimit - (currentSession.questionTimeRemaining ?? 0)) * 1000);
         
         const isCorrect = answer === currentQuestion.correctAnswer;
         
@@ -236,16 +235,22 @@ export const useTestStore = create<TestStore>()(
         const updatedDomainCoverage = { ...currentSession.domainCoverage };
         updatedDomainCoverage[currentQuestion.category]++;
 
+        const nextQuestionIndex = currentSession.currentQuestionIndex + 1;
+        const nextQuestion = currentSession.questions[nextQuestionIndex];
+
         const updatedSession: TestSession = {
           ...currentSession,
-          currentQuestionIndex: currentSession.currentQuestionIndex + 1,
+          currentQuestionIndex: nextQuestionIndex,
           answers: [...currentSession.answers, userAnswer],
           abilityEstimate: bayesianEstimate.ability,
           abilityHistory: [...currentSession.abilityHistory, bayesianEstimate.ability],
           standardError: bayesianEstimate.standardError,
           domainCoverage: updatedDomainCoverage,
-          isCompleted: currentSession.currentQuestionIndex + 1 >= config.totalQuestions ||
-                      bayesianEstimate.standardError <= config.targetStandardError
+          isCompleted: nextQuestionIndex >= config.totalQuestions ||
+                      bayesianEstimate.standardError <= config.targetStandardError,
+          // Reset per-question timer for next question if any
+          questionTimeRemaining: nextQuestion ? nextQuestion.timeLimit : 0,
+          isCurrentQuestionActive: false
         };
 
         set({ currentSession: updatedSession });
@@ -346,22 +351,51 @@ export const useTestStore = create<TestStore>()(
       },
 
       updateTimer: () => {
+        const { currentSession, config } = get();
+        if (!currentSession || currentSession.isPaused || currentSession.isCompleted) {
+          return;
+        }
+
+        let shouldAutoSubmit = false;
         set(state => {
-          if (!state.currentSession || state.currentSession.isPaused || state.currentSession.isCompleted) {
-            return state;
+          if (!state.currentSession) return state;
+
+          const globalTime = Math.max(0, state.currentSession.globalTimeRemaining - 1);
+          const questionTime = state.currentSession.isCurrentQuestionActive
+            ? Math.max(0, (state.currentSession.questionTimeRemaining ?? config.questionTimeLimit) - 1)
+            : (state.currentSession.questionTimeRemaining ?? config.questionTimeLimit);
+
+          if (globalTime === 0) {
+            // End test when global timer hits zero
+            setTimeout(() => get().endTest(), 0);
           }
 
-          const newTimeRemaining = Math.max(0, state.currentSession.globalTimeRemaining - 1);
-          
-          if (newTimeRemaining === 0) {
-            // Time's up - end the test
-            setTimeout(() => get().endTest(), 100);
+          if (questionTime === 0 && config.autoSubmitOnTimeUp && !state.currentSession.isCompleted) {
+            shouldAutoSubmit = true;
           }
 
           return {
             currentSession: {
               ...state.currentSession,
-              globalTimeRemaining: newTimeRemaining
+              globalTimeRemaining: globalTime,
+              questionTimeRemaining: questionTime
+            }
+          };
+        });
+
+        if (shouldAutoSubmit) {
+          // Auto-submit no-response (-1) and proceed
+          get().submitAnswer(-1);
+        }
+      },
+
+      activateCurrentQuestion: () => {
+        set(state => {
+          if (!state.currentSession) return state;
+          return {
+            currentSession: {
+              ...state.currentSession,
+              isCurrentQuestionActive: true
             }
           };
         });
@@ -450,13 +484,11 @@ export const useTestStore = create<TestStore>()(
         const testReliability = Math.max(0, 1 - (currentSession.standardError * currentSession.standardError));
 
         // Generate domain mastery analysis
-        const domainMastery: Record<QuestionCategory, DomainAnalysis> = {
-          [QuestionCategory.PATTERN_RECOGNITION]: get().getDomainAnalysis(QuestionCategory.PATTERN_RECOGNITION),
-          [QuestionCategory.SPATIAL_REASONING]: get().getDomainAnalysis(QuestionCategory.SPATIAL_REASONING),
-          [QuestionCategory.LOGICAL_DEDUCTION]: get().getDomainAnalysis(QuestionCategory.LOGICAL_DEDUCTION),
-          [QuestionCategory.SHORT_TERM_MEMORY]: get().getDomainAnalysis(QuestionCategory.SHORT_TERM_MEMORY),
-          [QuestionCategory.NUMERICAL_REASONING]: get().getDomainAnalysis(QuestionCategory.NUMERICAL_REASONING)
-        };
+        const domainMastery: Record<QuestionCategory, DomainAnalysis> = (Object.values(QuestionCategory) as QuestionCategory[])
+          .reduce((acc, cat) => {
+            acc[cat] = get().getDomainAnalysis(cat);
+            return acc;
+          }, {} as Record<QuestionCategory, DomainAnalysis>);
 
         const completionTime = currentSession.endTime 
           ? (currentSession.endTime.getTime() - currentSession.startTime.getTime()) / 1000

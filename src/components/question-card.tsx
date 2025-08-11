@@ -32,18 +32,18 @@ interface QuestionCardProps {
 export function QuestionCard({ question, questionNumber, totalQuestions }: QuestionCardProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [taskAnswer, setTaskAnswer] = useState<any>(null);
-  const [timeRemaining, setTimeRemaining] = useState(question.timeLimit);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const [taskStarted, setTaskStarted] = useState(false);
+  const [isMasked, setIsMasked] = useState(false);
 
   const { i18n } = useTranslation();
   const { 
     submitAnswer, 
     currentSession, 
-    updateTimer,
     pauseTest,
-    resumeTest
+    resumeTest,
+    config,
+    activateCurrentQuestion
   } = useTestStore();
 
   // Force re-render when language changes
@@ -73,13 +73,27 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
 
   // Reset state when question changes
   useEffect(() => {
-    setTimeRemaining(localizedQuestion.timeLimit);
     setSelectedAnswer(null);
     setTaskAnswer(null);
     setIsSubmitting(false);
     setTaskStarted(false);
-    setIsPaused(false);
-  }, [localizedQuestion.id, localizedQuestion.timeLimit]);
+    if (config?.presentationMaskMs && config.presentationMaskMs > 0) {
+      setIsMasked(true);
+      const t = setTimeout(() => setIsMasked(false), config.presentationMaskMs);
+      return () => clearTimeout(t);
+    } else {
+      setIsMasked(false);
+    }
+  }, [localizedQuestion.id, localizedQuestion.timeLimit, config?.presentationMaskMs]);
+
+  // Auto-activate MCQ when gating is disabled and mask is cleared
+  useEffect(() => {
+    const gatingDisabled = !localizedQuestion.taskType && !(config?.requireStartForMCQ ?? false);
+    if (gatingDisabled && !isMasked && !taskStarted) {
+      setTaskStarted(true);
+      activateCurrentQuestion();
+    }
+  }, [localizedQuestion.id, localizedQuestion.taskType, config?.requireStartForMCQ, isMasked, taskStarted, activateCurrentQuestion]);
 
   const handleSubmit = useCallback(async () => {
     if (isSubmitting) return;
@@ -105,44 +119,17 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
   }, [isSubmitting, submitAnswer, selectedAnswer, taskAnswer, localizedQuestion.taskType]);
 
   const handlePauseToggle = () => {
-    if (isPaused) {
+    if (currentSession?.isPaused) {
       resumeTest();
-      setIsPaused(false);
     } else {
       pauseTest();
-      setIsPaused(true);
     }
   };
 
-  // Question timer
-  useEffect(() => {
-    if (isPaused || !taskStarted) return;
-    
-    const timer = setInterval(() => {
-      setTimeRemaining(prev => {
-        if (prev <= 1) {
-          handleSubmit();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isPaused, taskStarted, handleSubmit]);
-
-  // Global timer
-  useEffect(() => {
-    const globalTimer = setInterval(() => {
-      if (currentSession && !isPaused) {
-        updateTimer();
-      }
-    }, 1000);
-
-    return () => clearInterval(globalTimer);
-  }, [currentSession, updateTimer, isPaused]);
+  // Timers centralized in store via page-level effect
 
   const progressPercentage = ((questionNumber - 1) / totalQuestions) * 100;
+  const timeRemaining = currentSession?.questionTimeRemaining ?? localizedQuestion.timeLimit;
   const timeProgressPercentage = (timeRemaining / localizedQuestion.timeLimit) * 100;
   const globalTimeRemaining = currentSession?.globalTimeRemaining || 0;
   
@@ -158,7 +145,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
     const taskProps = {
       taskData: localizedQuestion.taskData,
       onAnswer: setTaskAnswer,
-      isActive: taskStarted && !isPaused,
+      isActive: taskStarted && !currentSession?.isPaused && !isMasked,
       timeRemaining
     };
 
@@ -187,6 +174,8 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
   };
 
   const isTaskReady = localizedQuestion.taskType ? (taskAnswer !== null) : (selectedAnswer !== null);
+  const shouldGateMCQ = !localizedQuestion.taskType && (config?.requireStartForMCQ ?? false);
+  const isPaused = !!currentSession?.isPaused;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 test-secure">
@@ -283,7 +272,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
                     </span>
                   )}
                 </div>
-                <CardTitle className="text-2xl leading-relaxed text-white">
+                <CardTitle className={`text-2xl leading-relaxed text-white ${isMasked ? 'blur-sm select-none' : ''}`}>
                   {localizedQuestion.question}
                 </CardTitle>
               </div>
@@ -315,7 +304,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
                         This is an interactive cognitive task. Click start when you're ready to begin.
                       </p>
                       <Button
-                        onClick={() => setTaskStarted(true)}
+                        onClick={() => { setTaskStarted(true); activateCurrentQuestion(); }}
                         size="lg"
                         className="bg-purple-600 hover:bg-purple-700 text-white"
                       >
@@ -337,6 +326,29 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
             ) : (
               // Traditional multiple choice questions with enhanced UI
               <div className="space-y-4">
+                {(shouldGateMCQ && !taskStarted) ? (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="text-center py-8"
+                  >
+                    <div className="bg-white/5 rounded-lg p-6 border border-white/10">
+                      <h3 className="text-lg font-semibold mb-3">Ready to start?</h3>
+                      <p className="text-white/70 mb-4">
+                        Click start when you're ready. Options will be revealed.
+                      </p>
+                      <Button
+                        onClick={() => { setTaskStarted(true); activateCurrentQuestion(); }}
+                        size="lg"
+                        className="bg-purple-600 hover:bg-purple-700 text-white"
+                        disabled={isMasked}
+                      >
+                        <Play className="w-5 h-5 mr-2" />
+                        Start
+                      </Button>
+                    </div>
+                  </motion.div>
+                ) : null}
                 {/* Question Image */}
                 {localizedQuestion.image && (
                   <motion.div
@@ -348,7 +360,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
                       <img 
                         src={localizedQuestion.image} 
                         alt="Question diagram" 
-                        className="w-full h-auto rounded-lg"
+                        className={`w-full h-auto rounded-lg ${isMasked ? 'blur-sm select-none' : ''}`}
                       />
                     </div>
                   </motion.div>
@@ -374,7 +386,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
                               : 'bg-white/5 hover:bg-white/10 border-white/20 text-white'
                           }`}
                           onClick={() => setSelectedAnswer(index)}
-                          disabled={isSubmitting || isPaused}
+                          disabled={isSubmitting || isPaused || isMasked || (shouldGateMCQ && !taskStarted)}
                         >
                           <div className="flex items-center space-x-4">
                             <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-sm font-bold transition-all ${
@@ -384,7 +396,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
                             }`}>
                               {String.fromCharCode(65 + index)}
                             </div>
-                            <span className="text-base">{option}</span>
+                            <span className={`text-base ${isMasked ? 'blur-sm select-none' : ''}`}>{option}</span>
                           </div>
                         </Button>
                       </motion.div>
@@ -398,7 +410,7 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
             <div className="flex justify-center pt-6">
               <Button
                 onClick={handleSubmit}
-                disabled={isSubmitting || !isTaskReady || isPaused}
+                disabled={isSubmitting || !isTaskReady || isPaused || isMasked || (shouldGateMCQ && !taskStarted)}
                 size="lg"
                 className="min-w-[250px] bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white shadow-lg"
               >
@@ -422,7 +434,9 @@ export function QuestionCard({ question, questionNumber, totalQuestions }: Quest
 
             {/* Enhanced Help Text */}
             <div className="text-center text-sm text-white/60 pt-4">
-              {isPaused ? (
+              {isMasked ? (
+                <p>Preparing your next item...</p>
+              ) : isPaused ? (
                 <p>Test is paused. Click the pause button to resume.</p>
               ) : !isTaskReady ? (
                 <p>Complete the task or select an answer to continue</p>

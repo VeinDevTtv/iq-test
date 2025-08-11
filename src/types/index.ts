@@ -171,6 +171,8 @@ export interface TestSession {
   questions: Question[];
   answers: UserAnswer[];
   globalTimeRemaining: number; // seconds
+  questionTimeRemaining: number; // seconds remaining for current question
+  isCurrentQuestionActive: boolean; // per-question timer runs only when active
   // IRT-based ability estimation
   abilityEstimate: number; // θ (theta) - current ability estimate
   abilityHistory: number[]; // track θ progression
@@ -280,6 +282,10 @@ export interface AdaptiveTestConfig {
   penalizeSlowAnswers: boolean;
   penalizeFastAnswers: boolean;
   timeWeightFactor: number; // 0.0-1.0
+  // Presentation controls
+  presentationMaskMs?: number; // mask question/words for this many ms before allowing response
+  requireStartForMCQ?: boolean; // gate MCQ content behind an explicit Start
+  autoSubmitOnTimeUp?: boolean; // auto-submit when per-question time reaches 0
 }
 
 export interface TestStatistics {
